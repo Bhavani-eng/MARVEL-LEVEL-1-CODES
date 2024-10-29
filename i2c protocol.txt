@@ -1,0 +1,104 @@
+ esp 32 code
+
+
+
+#include <Wire.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+const int I2C_ADDRESS = 0x08;  // I2C address of the Arduino
+
+AsyncWebServer server(80);
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();  // ESP32 SDA (GPIO 21), SCL (GPIO 22)
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+  Serial.println(WiFi.localIP());
+
+  // Web server to receive message input
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "<form action=\"/send\" method=\"POST\"><input name=\"message\" type=\"text\"><input type=\"submit\" value=\"Send\"></form>");
+  });
+
+  // Endpoint to send message via I2C
+  server.on("/send", HTTP_POST, [](AsyncWebServerRequest *request){
+    String message;
+    if (request->hasParam("message", true)) {
+      message = request->getParam("message", true)->value();
+      sendMessageToArduino(message);
+      request->send(200, "text/plain", "Message sent: " + message);
+    } else {
+      request->send(200, "text/plain", "Message not sent");
+    }
+  });
+
+  server.begin();
+}
+
+void loop() {
+  // No need for code in loop() as server handles requests
+}
+
+void sendMessageToArduino(String message) {
+  Wire.beginTransmission(I2C_ADDRESS);
+  Wire.write(message.c_str());  // Send the message to Arduino
+  Wire.endTransmission();
+  Serial.println("Message sent to Arduino: " + message);
+}
+
+
+
+
+
+
+aurduino code
+
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define I2C_ADDRESS 0x08  // Must match ESP32 address
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD I2C address may vary
+
+String receivedMessage = "";
+
+void setup() {
+  Wire.begin(I2C_ADDRESS);  
+  Wire.onReceive(receiveEvent);
+
+  lcd.begin();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Awaiting message...");
+}
+
+void loop() {
+  if (receivedMessage.length() > 0) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(receivedMessage);  // Display received message on LCD
+    delay(2000);  // Delay for readability
+    receivedMessage = "";  // Clear the message after displaying
+  }
+}
+
+void receiveEvent(int bytes) {
+  receivedMessage = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    receivedMessage += c;
+  }
+}

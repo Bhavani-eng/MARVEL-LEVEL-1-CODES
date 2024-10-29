@@ -1,0 +1,27 @@
+#define SOIL_SENSOR_PIN 34  // Analog pin for soil moisture sensor
+#define ALERT_PIN 2         // GPIO for buzzer or LED alert
+#define MOISTURE_THRESHOLD 500  // Set the threshold for dryness
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(SOIL_SENSOR_PIN, INPUT);
+  pinMode(ALERT_PIN, OUTPUT);
+
+  Serial.println("Soil Moisture Monitoring Started");
+}
+
+void loop() {
+  int moistureLevel = analogRead(SOIL_SENSOR_PIN);
+  Serial.print("Moisture Level: ");
+  Serial.println(moistureLevel);
+
+  // Check for low moisture level
+  if (moistureLevel < MOISTURE_THRESHOLD) {
+    Serial.println("Soil is too dry! Alert!");
+    digitalWrite(ALERT_PIN, HIGH);  // Activate alert
+  } else {
+    digitalWrite(ALERT_PIN, LOW);   // Deactivate alert
+  }
+
+  delay(2000);  // Update every 2 seconds
+}

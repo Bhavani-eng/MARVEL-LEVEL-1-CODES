@@ -1,0 +1,98 @@
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+
+const int LED_PIN = 2;  // GPIO for LED
+AsyncWebServer server(80);
+
+// Morse code dictionary
+const String morseCode[] = {
+  ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.",
+  "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."
+};
+const String digits[] = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
+
+// Function to flash LED for Morse code
+void flashMorse(const String &morse) {
+  for (char c : morse) {
+    if (c == '.') {
+      digitalWrite(LED_PIN, HIGH);
+      delay(200); // Dot duration
+    } else if (c == '-') {
+      digitalWrite(LED_PIN, HIGH);
+      delay(600); // Dash duration
+    }
+    digitalWrite(LED_PIN, LOW);
+    delay(200);  // Pause between elements
+  }
+  delay(600);  // Pause between characters
+}
+
+// Function to process and flash each character in the message
+void processMessage(const String &message) {
+  for (char c : message) {
+    if (isalpha(c)) {
+      String morse = morseCode[toupper(c) - 'A'];
+      flashMorse(morse);
+    } else if (isdigit(c)) {
+      String morse = digits[c - '0'];
+      flashMorse(morse);
+    } else if (c == ' ') {
+      delay(1400);  // Space between words
+    }
+  }
+}
+
+// HTML for web form
+const char htmlForm[] = R"rawliteral(
+  <!DOCTYPE html>
+  <html>
+  <body>
+    <h2>Enter Message to Flash in Morse Code</h2>
+    <form action="/send" method="POST">
+      <input type="text" name="message" placeholder="Enter message">
+      <input type="submit" value="Send">
+    </form>
+  </body>
+  </html>
+)rawliteral";
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+  Serial.println(WiFi.localIP());
+
+  // Set up web server
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", htmlForm);
+  });
+
+  server.on("/send", HTTP_POST, [](AsyncWebServerRequest *request) {
+    String message;
+    if (request->hasParam("message", true)) {
+      message = request->getParam("message", true)->value();
+      processMessage(message);
+      request->send(200, "text/plain", "Message sent: " + message);
+    } else {
+      request->send(200, "text/plain", "No message received");
+    }
+  });
+
+  server.begin();
+}
+
+void loop() {
+  // The loop remains empty as the server handles requests
+}

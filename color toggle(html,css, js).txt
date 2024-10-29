@@ -1,0 +1,59 @@
+ HTML 
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Toggle</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Color Toggle</h1>
+        <button id="toggleButton">Toggle Color</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+CSS
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Toggle</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Color Toggle</h1>
+        <button id="toggleButton">Toggle Color</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+JS
+
+const toggleButton = document.getElementById('toggleButton');
+let isToggled = false;
+
+toggleButton.addEventListener('click', function() {
+    isToggled = !isToggled;
+    if (isToggled) {
+        document.body.style.backgroundColor = '#3498db'; // New background color
+    } else {
+        document.body.style.backgroundColor = '#f0f0f0'; // Default background color
+    }
+});
+

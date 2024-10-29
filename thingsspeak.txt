@@ -1,0 +1,104 @@
+ESP 32 code
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <DHT.h>
+
+#define DHTPIN 4       // DHT sensor connected to GPIO 4
+#define DHTTYPE DHT11  // DHT 11 or DHT 22
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+String apiKey = "YOUR_API_KEY";
+String server = "http://api.thingspeak.com";
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  dht.begin();
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi.");
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+
+  if (isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = server + "/update?api_key=" + apiKey + "&field1=" + String(temperature);
+    http.begin(url);
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0) {
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+    } else {
+      Serial.print("Error code: ");
+      Serial.println(httpResponseCode);
+    }
+    http.end();
+  } else {
+    Serial.println("WiFi Disconnected");
+  }
+
+  delay(15000); // Wait 15 seconds to comply with ThingSpeak rate limit
+}
+
+
+
+
+
+
+
+python code
+
+
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Replace with your channel ID and read API key
+channel_id = "YOUR_CHANNEL_ID"
+read_api_key = "YOUR_API_KEY"
+
+# ThingSpeak API URL for retrieving data
+url = f"https://api.thingspeak.com/channels/{channel_id}/fields/1.json?api_key={read_api_key}&results=100"
+
+# Request data from ThingSpeak
+response = requests.get(url)
+data = response.json()
+
+# Extract time and temperature data
+timestamps = []
+temperatures = []
+
+for feed in data['feeds']:
+    timestamps.append(feed['created_at'])
+    temperatures.append(float(feed['field1']))
+
+# Create a DataFrame
+df = pd.DataFrame({
+    'Timestamp': pd.to_datetime(timestamps),
+    'Temperature': temperatures
+})
+
+# Plot temperature vs time
+plt.figure(figsize=(10, 6))
+plt.plot(df['Timestamp'], df['Temperature'], marker='o', linestyle='-', color='b')
+plt.xlabel("Time")
+plt.ylabel("Temperature (°C)")
+plt.title("Temperature vs. Time")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
