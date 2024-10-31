@@ -1,0 +1,85 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+// WiFi credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
+// MQTT Broker settings
+const char* mqtt_server = "broker_url";
+const int mqtt_port = 1883;
+const char* mqtt_user = "your_username";
+const char* mqtt_password = "your_password";
+
+// LED GPIO Pins
+const int ledPin1 = 5;  // Replace with your pin
+const int ledPin2 = 18; // Replace with your pin
+const int ledPin3 = 19; // Replace with your pin
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(ledPin1, OUTPUT);
+    pinMode(ledPin2, OUTPUT);
+    pinMode(ledPin3, OUTPUT);
+    
+    setup_wifi();
+    client.setServer(mqtt_server, mqtt_port);
+    client.setCallback(callback);
+}
+
+void setup_wifi() {
+    delay(10);
+    Serial.println("Connecting to WiFi...");
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("WiFi connected");
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+    String message;
+    for (int i = 0; i < length; i++) {
+        message += (char)payload[i];
+    }
+
+    if (message == "LED 1 ON") {
+        digitalWrite(ledPin1, HIGH);
+    } else if (message == "LED 1 OFF") {
+        digitalWrite(ledPin1, LOW);
+    } else if (message == "LED 2 ON") {
+        digitalWrite(ledPin2, HIGH);
+    } else if (message == "LED 2 OFF") {
+        digitalWrite(ledPin2, LOW);
+    } else if (message == "LED 3 ON") {
+        digitalWrite(ledPin3, HIGH);
+    } else if (message == "LED 3 OFF") {
+        digitalWrite(ledPin3, LOW);
+    }
+}
+
+void reconnect() {
+    while (!client.connected()) {
+        Serial.print("Attempting MQTT connection...");
+        if (client.connect("ESP32_Client", mqtt_user, mqtt_password)) {
+            Serial.println("connected");
+            client.subscribe("ledControl");
+        } else {
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            delay(5000);
+        }
+    }
+}
+
+void loop() {
+    if (!client.connected()) {
+        reconnect();
+    }
+    client.loop();
+}

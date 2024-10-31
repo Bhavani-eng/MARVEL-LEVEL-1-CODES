@@ -1,0 +1,74 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include "ESP_Mail_Client.h"
+
+// WiFi Credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
+// Email server settings
+#define SMTP_HOST "smtp.gmail.com"
+#define SMTP_PORT 465
+
+// Email login credentials
+const char* emailSender = "your_email@gmail.com";
+const char* emailPassword = "your_email_password";
+const char* emailRecipient = "recipient_email@gmail.com";
+
+// Fire sensor pin
+const int fireSensorPin = 34;  // Replace with actual GPIO pin connected to the fire sensor
+int fireThreshold = 100;       // Adjust threshold based on sensor readings
+
+// Create email session
+SMTPSession smtp;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(fireSensorPin, INPUT);
+
+  // Connect to Wi-Fi
+  Serial.print("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected!");
+
+  // Configure the SMTP server
+  smtp.debug(1);
+  smtp.callback(smtpCallback);
+}
+
+void loop() {
+  int sensorValue = analogRead(fireSensorPin);
+
+  if (sensorValue > fireThreshold) {
+    Serial.println("Fire detected! Sending email alert...");
+
+    // Prepare email content
+    SMTP_Message message;
+    message.sender.name = "Fire Alarm System";
+    message.sender.email = emailSender;
+    message.subject = "Fire Alert!";
+    message.addRecipient("Lab Coordinator", emailRecipient);
+    message.text.content = "Warning: Fire has been detected! Immediate attention required.";
+
+    // Set email login credentials and server
+    smtp.setLogin(SMTP_HOST, SMTP_PORT, emailSender, emailPassword);
+    smtp.setSender("ESP32 Fire Alarm", emailSender);
+
+    if (!smtp.sendMail(message)) {
+      Serial.println("Error sending email: " + smtp.errorReason());
+    } else {
+      Serial.println("Email sent successfully!");
+    }
+
+    delay(10000);  // Delay to prevent continuous alerts
+  }
+}
+
+void smtpCallback(SMTP_Status status) {
+  Serial.println(status.info());
+}

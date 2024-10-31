@@ -1,0 +1,92 @@
+#include <WiFi.h>
+#include <Wire.h>
+#include <Adafruit_MAX30100.h>
+#include <PubSubClient.h>
+
+// WiFi Credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
+// MQTT Broker details
+const char* mqtt_server = "broker_url";
+const char* mqtt_user = "your_username";
+const char* mqtt_password = "your_password";
+const int mqtt_port = 1883;
+
+// Initialize MAX30100 sensor
+Adafruit_MAX30100 max30100;
+
+// MQTT and WiFi clients
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup() {
+  Serial.begin(115200);
+  
+  // MAX30100 initialization
+  max30100.begin();
+  max30100.setMode(MAX30100_MODE_SPO2_HR);
+
+  // WiFi connection
+  Serial.print("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+
+  // MQTT setup
+  client.setServer(mqtt_server, mqtt_port);
+}
+
+void loop() {
+  // Check if connected to MQTT
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+  // Read sensor values
+  max30100.update();
+  float heartRate = max30100.getHeartRate();
+  float spo2 = max30100.getSpO2();
+
+  // Publish data via MQTT
+  String heartRateStr = String(heartRate);
+  String spo2Str = String(spo2);
+  client.publish("vitals/heart_rate", heartRateStr.c_str());
+  client.publish("vitals/spo2", spo2Str.c_str());
+
+  // Start web server for web server method
+  if (client.connected()) {
+    WiFiClient webClient = client.available();
+    if (webClient) {
+      webClient.println("HTTP/1.1 200 OK");
+      webClient.println("Content-Type: text/html");
+      webClient.println();
+      webClient.print("<p>Heart Rate: ");
+      webClient.print(heartRate);
+      webClient.print(" BPM</p><p>SpO2: ");
+      webClient.print(spo2);
+      webClient.print(" %</p>");
+    }
+  }
+  
+  delay(1000);  // Update every second
+}
+
+// MQTT reconnect function
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    if (client.connect("ESP32Client", mqtt_user, mqtt_password)) {
+      Serial.println("connected");
+      client.subscribe("vitals/#");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      delay(5000);
+    }
+  }
+}
